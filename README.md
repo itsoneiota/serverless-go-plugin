@@ -54,9 +54,11 @@ custom:
     cgo: 0 # CGO_ENABLED flag
     cmd: 'GOOS=linux go build -ldflags="-s -w"' # compile command
     monorepo: false # if enabled, builds function every directory (useful for monorepo where go.mod is managed by each function
-    supportedRuntimes: ["go1.x"] # the plugin compiles a function only if runtime is declared here (either on function or provider level) 
+    supportedRuntimes: ["go1.x"] # the plugin compiles a function only if runtime is declared here (either on function or provider level)
     buildProvidedRuntimeAsBootstrap: false # if enabled, builds and archive function with only single "bootstrap" binary (useful for runtimes like provided.al2)
 ```
+
+You can also set a `binDir` at a function basis, if you wish to create your bin in a specific place.
 
 ## How does it work?
 
@@ -81,6 +83,6 @@ include:
 provider:
     architecture: arm64
     runtime: provided.al2
-```   
+```
 
 **Warning!** First deploy may result in small downtime (~few seconds) of lambda, use some deployment strategy like canary for safer rollout.
