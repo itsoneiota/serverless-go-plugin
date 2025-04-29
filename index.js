@@ -124,6 +124,10 @@ module.exports = class Plugin {
       }
       compileBinPath = path.relative(cwd, compileBinPath);
     }
+    if (func.binDir != null) {
+      compileBinPath = stripTrailingSlash(func.binDir) + "/" + compileBinPath
+    }
+
     try {
       const [env, command] = parseCommand(
         `${config.cmd} -o ${compileBinPath} ${handler}`
@@ -146,7 +150,7 @@ module.exports = class Plugin {
       process.exit(1);
     }
 
-    let binPath = path.join(config.binDir, name);
+    let binPath = compileBinPath;
     if (process.platform === "win32") {
       binPath = binPath.replace(/\\/g, "/");
     }
@@ -154,7 +158,9 @@ module.exports = class Plugin {
     const packageConfig = this.generatePackageConfig(
       runtime,
       config,
+      name,
       binPath,
+      func,
       this.serverless.service.functions[name].package &&
         this.serverless.service.functions[name].package.include
         ? this.serverless.service.functions[name].package.include
@@ -164,13 +170,21 @@ module.exports = class Plugin {
     this.serverless.service.functions[name].package = packageConfig;
   }
 
-  generatePackageConfig(runtime, config, binPath, includes) {
+  generatePackageConfig(runtime, config, name, binPath, func, includes) {
     if (
       config.buildProvidedRuntimeAsBootstrap &&
       amazonProvidedRuntimes.includes(runtime)
     ) {
       const zip = new AdmZip();
-      zip.addFile("bootstrap", readFileSync(binPath), "", 0o755);
+
+      try {
+        const fileBuffer = readFileSync(binPath);
+        zip.addFile("bootstrap", fileBuffer, "", 0o755);
+      } catch (error) {
+        this.serverless.cli.consoleLog(`addFile Error: ${error.message}`);
+        this.serverless.cli.consoleLog(error.stack);
+      }
+
       for (let i = 0; i < includes.length; i++) {
         const files = glob.sync(includes[i]);
         files.forEach((file) => {
@@ -178,8 +192,14 @@ module.exports = class Plugin {
           zip.addLocalFile(file, entryName);
         });
       }
-      const zipPath = binPath + ".zip";
+
+      let zipPath = binPath + ".zip";
       zip.writeZip(zipPath);
+
+      if (func.binDir != null) {
+        zipPath = zipPath.replace(stripTrailingSlash(func.binDir) + "/", "")
+       }
+
       return {
         individually: true,
         artifact: zipPath,
@@ -227,3 +247,7 @@ function parseCommand(cmd) {
 
   return [envSetters, command];
 }
+
+function stripTrailingSlash (str) {
+  return str.endsWith('/') ? str.slice(0, -1) : str;
+};
